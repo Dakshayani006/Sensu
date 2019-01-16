@@ -19,19 +19,26 @@ apt-get install -y curl
 sudo apt-get update -y
 sudo apt-get upgrade -y
 
-echo "...installing the Sensu Core software repository..."
+#install Rabbitmq
+
 wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
 sudo dpkg -i erlang-solutions_1.0_all.deb
 wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -
-echo "SUCCESS!"
-success=1
-
-
-sudo apt-get update
-
-
-# Install Redis, CURL and JQ
+sudo apt-get update -y
 sudo apt-get install socat erlang-nox -y
+wget -O- https://dl.bintray.com/rabbitmq/Keys/rabbitmq-release-signing-key.asc | sudo apt-key add -
+wget -O- https://www.rabbitmq.com/rabbitmq-release-signing-key.asc | sudo apt-key add -
+echo "deb https://dl.bintray.com/rabbitmq/debian $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/rabbitmq.list
+sudo apt update
+sudo apt -y install rabbitmq-server
+sudo systemctl start rabbitmq-server.service 
+sudo systemctl is-enabled rabbitmq-server.service
+sudo systemctl enable rabbitmq-server
+sudo rabbitmqctl add_vhost /sensu
+sudo rabbitmqctl add_user sensu your-password
+sudo rabbitmqctl set_permissions -p /sensu sensu ".*" ".*" ".*"
+
+# Install Redis
 sudo apt-get update
 sudo apt-get -y install redis-server
 sudo service redis-server start
@@ -44,8 +51,8 @@ sudo apt-get install sensu
 
 sudo cp /home/vagrant/src/sensu/conf.d/api.json /etc/sensu/conf.d/
 sudo cp /home/vagrant/src/sensu/conf.d/redis.json /etc/sensu/conf.d/
-sudo cp /home/vagrant/src/sensu/conf.d/transport.json /etc/sensu/conf.d
-sudo cp /home/vagrant/src/sensu/conf.d/client.json /etc/sensu/conf.d
+sudo cp /home/vagrant/src/sensu/conf.d/rabbitmq.json /etc/sensu/conf.d/
+
 
 # Install Uchiwa
 wget -O- https://sensu.global.ssl.fastly.net/apt/pubkey.gpg | sudo apt-key add -
@@ -67,12 +74,14 @@ sudo systemctl start sensu-server
 sudo systemctl start sensu-api
 sudo systemctl start sensu-client
 sudo systemctl start redis
+sudo systemctl start rabbitmq-server
 sudo systemctl start uchiwa
 
 sudo systemctl restart sensu-server
 sudo systemctl restart sensu-api
 sudo systemctl restart sensu-client
 sudo systemctl restart redis
+sudo systemctl restart rabbitmq-server
 sudo systemctl restart uchiwa
 
 
